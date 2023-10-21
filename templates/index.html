@@ -2,32 +2,135 @@
 <html>
 
 <head>
-  <title>Chat</title>
+  <title>Fancy Chat Application</title>
+  <!-- Include Bootstrap CSS -->
+  <link rel="stylesheet"
+    href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <style>
+    /* Custom CSS for styling */
+    body {
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      margin-top: 50px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    #chat {
+      display: none;
+    }
+
+    li {
+      display: block;
+    }
+
+    .user-message {
+      background-color: #17A2B8;
+      color: #fff;
+      border-radius: 0.5em;
+      padding: 5px 10px;
+      margin: 5px 0;
+      float: left;
+    }
+
+    .other-message {
+      background-color: #007BFF;
+      color: #fff;
+      border-radius: 0.5em;
+      padding: 5px 10px;
+      margin: 5px 0;
+      float: right;
+    }
+  </style>
 </head>
 
 <body>
-  <h1>WebSocket Chat</h1>
-  <form action="" onsubmit="sendMessage(event)">
-    <input type="text" id="messageText" autocomplete="off" />
-    <button>Send</button>
-  </form>
-  <ul id='messages'>
-  </ul>
+  <div class="container">
+    <h1 class="text-center">IncognitoChat</h1>
+    <div id="chat" class="jumbotron">
+      <ul id="messages"></ul>
+    </div>
+    <div id="username-form">
+      <button id="open-modal" class="btn btn-success btn-lg">Join</button>
+    </div>
+    <div class="input-group mb-3" id="message-input" style="display: none;">
+      <input type="text" id="message" class="form-control"
+        placeholder="Type your message">
+      <div class="input-group-append">
+        <button id="send" class="btn btn-primary">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Username Modal -->
+  <div class="modal fade" id="usernameModal" tabindex="-1" role="dialog"
+    aria-labelledby="usernameModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="usernameModalLabel">Enter Your Username
+          </h5>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="usernameInput" class="form-control"
+            placeholder="Your username">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary"
+            data-dismiss="modal">Close</button>
+          <button id="join" class="btn btn-primary"
+            data-dismiss="modal">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include Bootstrap and jQuery JavaScript -->
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script
+    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+
   <script>
-    var ws = new WebSocket("ws://localhost:8000/ws");
-    ws.onmessage = function (event) {
-      var messages = document.getElementById('messages')
-      var message = document.createElement('li')
-      var content = document.createTextNode(event.data)
-      message.appendChild(content)
-      messages.appendChild(message)
+    $('#open-modal').click(function () {
+      $('#usernameModal').modal('show');
+    });
+
+    $('#join').click(function () {
+      const username = $('#usernameInput').val();
+      if (username) {
+        $('#username-form').hide();
+        $('#chat').show();
+        $('#message-input').show(); // Show the message input and send button
+      }
+    });
+
+    const socket = new WebSocket('ws://localhost:8000/message');
+
+    socket.onmessage = function (event) {
+      const data = JSON.parse(event.data);
+      const msgClass = data.isMe ? 'user-message' : 'other-message';
+      const sender = data.isMe ? 'You' : data.username;
+      const message = data.data;
+      const messageElement = $('<li>').addClass('clearfix');
+      messageElement.append($('<div>').addClass(msgClass).text(sender + ': ' + message));
+      $('#messages').append(messageElement);
+      $('#chat').scrollTop($('#chat')[0].scrollHeight);
     };
-    function sendMessage(event) {
-      var input = document.getElementById("messageText")
-      ws.send(input.value)
-      input.value = ''
-      event.preventDefault()
-    }
+
+    $('#send').click(function () {
+      const message = $('#message').val();
+      if (message) {
+        socket.send(JSON.stringify({ "message": message, "username": $('#usernameInput').val() }));
+        $('#message').val('');
+      }
+    });
   </script>
 </body>
 

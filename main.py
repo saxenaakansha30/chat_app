@@ -18,14 +18,10 @@ class ConnectionManager:
     id = str(uuid.uuid4())
     self.active_connections[id] = websocket
 
-    await self.send_message(websocket, json.dumps({"type": "connect", "id": id}))
+    await self.send_message(websocket, json.dumps({"isMe": True, "data": "Have joined!!", "username": "You"}))
 
   async def send_message(self, ws: WebSocket, message: str):
-    await ws.send_text(f" Message from user 1: {message}")
-
-  async def broadcast(self, message: str):
-    for connection in self.active_connections.values():
-      await connection.send_text(f" Message from user 1: {message}")
+    await ws.send_text(message)
 
   def find_connection_id(self, websocket: WebSocket):
     websocket_list = list(self.active_connections.values())
@@ -33,6 +29,16 @@ class ConnectionManager:
 
     pos = websocket_list.index(websocket)
     return id_list[pos]
+
+  async def broadcast(self, webSocket: WebSocket, data: str):
+    decoded_data = json.loads(data)
+
+    for connection in self.active_connections.values():
+      is_me = False
+      if connection == webSocket:
+        is_me = True
+
+      await connection.send_text(json.dumps({"isMe": is_me, "data": decoded_data['message'], "username": decoded_data['username']}))
 
   def disconnect(self, websocket: WebSocket):
     id = self.find_connection_id(websocket)
@@ -44,29 +50,10 @@ app = FastAPI()
 connection_manager = ConnectionManager()
 
 @app.get("/", response_class=HTMLResponse)
-def get_home(request: Request):
+def get_room(request: Request):
   return templates.TemplateResponse("index.html", {"request": request});
 
-@app.get("/user-1", response_class=HTMLResponse)
-def get_home(request: Request):
-  return templates.TemplateResponse("user-1.html", {"request": request});
-
-@app.get("/user-2", response_class=HTMLResponse)
-def get_home(request: Request):
-  return templates.TemplateResponse("user-2.html", {"request": request});
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-  await websocket.accept() # Initiate a websocket connection
-  try:
-    while True:
-      data = await websocket.receive_text()
-      await websocket.send_text(f"Message test was {data}")
-  except WebSocketDisconnect:
-    print(f"client disconnected")
-
-
-@app.websocket("/messaging")
+@app.websocket("/message")
 async def websocket_endpoint(websocket: WebSocket):
   # Accept the connection from the client.
   await connection_manager.connect(websocket)
@@ -75,9 +62,14 @@ async def websocket_endpoint(websocket: WebSocket):
     while True:
       # Recieves message from the client
       data = await websocket.receive_text()
-      print ("Received: ", data)
-      await connection_manager.broadcast(data)
+
+      await connection_manager.broadcast(websocket, data)
   except WebSocketDisconnect:
     id = await connection_manager.disconnect(websocket)
     # Broadcast this client leaving in the channel.
-    connection_manager.broadcast(json.dumps({"type": "disconnected", "id": id}))
+    # connection_manager.broadcast(json.dumps({"message": "disconnected", "id": id}))
+
+@app.get("/join", response_class=HTMLResponse)
+def get_room(request: Request):
+  return templates.TemplateResponse("room.html", {"request": request});
+
