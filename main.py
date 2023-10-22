@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from typing import Dict
 import uuid
 import json
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 templates = Jinja2Templates(directory="templates")
 
@@ -47,6 +49,7 @@ class ConnectionManager:
     return id
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 connection_manager = ConnectionManager()
 
 @app.get("/", response_class=HTMLResponse)
@@ -62,12 +65,10 @@ async def websocket_endpoint(websocket: WebSocket):
     while True:
       # Recieves message from the client
       data = await websocket.receive_text()
-
       await connection_manager.broadcast(websocket, data)
   except WebSocketDisconnect:
     id = await connection_manager.disconnect(websocket)
-    # Broadcast this client leaving in the channel.
-    # connection_manager.broadcast(json.dumps({"message": "disconnected", "id": id}))
+    return RedirectResponse("/")
 
 @app.get("/join", response_class=HTMLResponse)
 def get_room(request: Request):
